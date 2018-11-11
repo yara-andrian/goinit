@@ -2,4 +2,4 @@ Dockerfile
 !src/Dockerfile
 .scripts
 !src/.scripts
-goinit
+bin

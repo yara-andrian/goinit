@@ -24,15 +24,47 @@ build:
 	-@$(eval GIT_TAG_VERSION=$(shell docker run -v "$(CURDIR):/app" zephinzer/vtscripts:latest get-latest -q -i))
 	-@docker stop $(PROJECT_NAME)-latest-build
 	-@docker rm $(PROJECT_NAME)-latest-build
-	@$(MAKE) log.info MSG="Building project $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
+	@mkdir -p bin
+	@$(MAKE) log.info MSG="Building Windows binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
 	@docker run \
 		-v "$$(pwd):/go/src/app" \
-		--env "CGO_ENABLED=1" \
+		--env "CGO_ENABLED=0" \
+		--env "GOOS=windows" \
+		--env "GOARCH=386" \
 		--name $(PROJECT_NAME)-latest-build \
 		$(PROJECT_NAME):latest-dev \
 		go build \
+			-a \
 			-ldflags "-X main.version=$(GIT_TAG_VERSION) -w -extldflags \"static\"" \
-			-o $(PROJECT_NAME)
+			-o bin/$(PROJECT_NAME)-win-386.exe
+	-@docker stop $(PROJECT_NAME)-latest-build
+	-@docker rm $(PROJECT_NAME)-latest-build
+	@$(MAKE) log.info MSG="Building Linux binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
+	@docker run \
+		-v "$$(pwd):/go/src/app" \
+		--env "CGO_ENABLED=0" \
+		--env "GOOS=linux" \
+		--env "GOARCH=amd64" \
+		--name $(PROJECT_NAME)-latest-build \
+		$(PROJECT_NAME):latest-dev \
+		go build \
+			-a \
+			-ldflags "-X main.version=$(GIT_TAG_VERSION) -w -extldflags \"static\"" \
+			-o bin/$(PROJECT_NAME)-linux-amd64
+	@$(MAKE) log.info MSG="Building OS X binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
+	-@docker stop $(PROJECT_NAME)-latest-build
+	-@docker rm $(PROJECT_NAME)-latest-build
+	@docker run \
+		-v "$$(pwd):/go/src/app" \
+		--env "CGO_ENABLED=0" \
+		--env "GOOS=linux" \
+		--env "GOARCH=arm" \
+		--name $(PROJECT_NAME)-latest-build \
+		$(PROJECT_NAME):latest-dev \
+		go build \
+			-a \
+			-ldflags "-X main.version=$(GIT_TAG_VERSION) -w -extldflags \"static\"" \
+			-o bin/$(PROJECT_NAME)-linux-arm
 	@$(MAKE) log.info MSG="Successfully built $(PROJECT_NAME)..."
 
 build.docker: init
