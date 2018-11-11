@@ -1,14 +1,5 @@
 PROJECT_NAME=$(notdir $(CURDIR))
 
-
-deinit:
-	@$(MAKE) log.warn MSG="Removing ./Dockerfile..."
-	@if [ -e "$(CURDIR)/Dockerfile" ]; then rm -rf $(CURDIR)/Dockerfile; fi
-	@$(MAKE) log.warn MSG="Removing ./.scripts/.bash_profile..."
-	@if [ -e "$(CURDIR)/.scripts/.bash_profile" ]; then rm -rf $(CURDIR)/.scripts/.bash_profile; fi
-	@$(MAKE) log.warn MSG="Removing ./.scripts/auto-run.py..."
-	@if [ -e "$(CURDIR)/.scripts/auto-run.py" ]; then rm -rf $(CURDIR)/.scripts/auto-run.py; fi
-
 init:
 	@mkdir -p ./.scripts
 	@$(MAKE) log.info MSG="Loading Dockerfile for creating images..."
@@ -19,6 +10,14 @@ init:
 	@if ! [ -e "$(CURDIR)/.scripts/auto-run.py" ]; then echo "$$AUTO_RUN_TESTS_CONTENT" > $(CURDIR)/.scripts/auto-run.py; fi
 	@$(MAKE) log.info MSG="Building development image..."
 	@$(MAKE) build.docker.development
+
+deinit:
+	@$(MAKE) log.warn MSG="Removing ./Dockerfile..."
+	@if [ -e "$(CURDIR)/Dockerfile" ]; then rm -rf $(CURDIR)/Dockerfile; fi
+	@$(MAKE) log.warn MSG="Removing ./.scripts/.bash_profile..."
+	@if [ -e "$(CURDIR)/.scripts/.bash_profile" ]; then rm -rf $(CURDIR)/.scripts/.bash_profile; fi
+	@$(MAKE) log.warn MSG="Removing ./.scripts/auto-run.py..."
+	@if [ -e "$(CURDIR)/.scripts/auto-run.py" ]; then rm -rf $(CURDIR)/.scripts/auto-run.py; fi
 
 build:
 	-@$(eval GIT_TAG_VERSION=$(shell docker run -v "$(CURDIR):/app" zephinzer/vtscripts:latest get-latest -q -i))
@@ -75,7 +74,6 @@ build.docker.development:
 	-@docker build -f ./Dockerfile --target=development -t $(PROJECT_NAME):latest-dev .
 	@$(MAKE) log.info MSG="Image \"$(PROJECT_NAME):latest-dev\" successfully built"
 	
-
 build.docker.production:
 	@$(MAKE) log.info MSG="Building image \"$(PROJECT_NAME):latest\""
 	@docker build -f ./Dockerfile --target=production -t $(PROJECT_NAME):latest .
