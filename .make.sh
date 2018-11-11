@@ -1,7 +1,5 @@
 #!/bin/sh
 
-cat ./src/Makefile > ./Makefile;
-
 cat Makefile | grep "define DOCKERFILE_CONTENT" >/dev/null;
 if [ "$?" = "0" ]; then 
   sed -i '/define DOCKERFILE_CONTENT/,/export DOCKERFILE_CONTENT/d' ./Makefile;
