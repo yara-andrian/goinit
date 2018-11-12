@@ -2,4 +2,3 @@ Dockerfile
 !src/Dockerfile
 .scripts
 !src/.scripts
-bin

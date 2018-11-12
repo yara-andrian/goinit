@@ -1,7 +1,11 @@
 PROJECT_NAME=$(notdir $(CURDIR))
 
 init:
-	@mkdir -p ./.scripts
+	@mkdir -p $(CURDIR)/.scripts
+	@mkdir -p $(CURDIR)/.cache
+	@echo "*\n!.gitignore" > $(CURDIR)/.cache/.gitignore
+	@mkdir -p $(CURDIR)/bin
+	@echo "*\n!.gitignore" > $(CURDIR)/bin/.gitignore
 	@$(MAKE) log.info MSG="Loading Dockerfile for creating images..."
 	@if ! [ -e "$(CURDIR)/Dockerfile" ]; then echo "$$DOCKERFILE_CONTENT" > $(CURDIR)/Dockerfile; fi
 	@$(MAKE) log.info MSG="Loading .bash_profile for nice shell debugging..."
@@ -54,7 +58,9 @@ build:
 	-@docker stop $(PROJECT_NAME)-latest-build
 	-@docker rm $(PROJECT_NAME)-latest-build
 	@docker run \
-		-v "$$(pwd):/go/src/app" \
+		-v "$(CURDIR):/go/src/app" \
+		-v $(CURDIR)/.cache:/.cache \
+		-u $$(id -u) \
 		--env "CGO_ENABLED=0" \
 		--env "GOOS=linux" \
 		--env "GOARCH=arm" \
@@ -94,7 +100,9 @@ start: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-dev
 	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-dev\" from image \"$(PROJECT_NAME):latest-dev\"..."
 	@docker run \
-		-v "$$(pwd):/go/src/app" \
+		-v "$(CURDIR):/go/src/app" \
+		-v $(CURDIR)/.cache:/.cache \
+		-u $$(id -u) \
 		--name $(PROJECT_NAME)-latest-dev \
 		$(PROJECT_NAME):latest-dev \
 		realize start --no-config --run
@@ -104,7 +112,9 @@ test: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-test
 	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-test\" from image \"$(PROJECT_NAME):latest-dev\"..."
 	@docker run \
-		-v "$$(pwd):/go/src/app" \
+		-v "$(CURDIR):/go/src/app" \
+		-v $(CURDIR)/.cache:/.cache \
+		-u $$(id -u) \
 		--name $(PROJECT_NAME)-latest-test \
 		$(PROJECT_NAME):latest-dev \
 		go test -v -cover -coverprofile=c.out
@@ -114,7 +124,9 @@ test.watch: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-testing
 	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-testing\" from image \"$(PROJECT_NAME):latest-dev\"..."
 	@docker run \
-		-v "$$(pwd):/go/src/app" \
+		-v "$(CURDIR):/go/src/app" \
+		-v $(CURDIR)/.cache:/.cache \
+		-u $$(id -u) \
 		--name $(PROJECT_NAME)-latest-testing \
 		$(PROJECT_NAME):latest-dev \
 		autorun-tests
