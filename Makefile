@@ -1,9 +1,13 @@
 PROJECT_NAME=$(notdir $(CURDIR))
 
+# this initialises the project directory
 init:
+	@$(MAKE) log.info MSG="Creating scripts directory at $(CURDIR)/.scripts..."
 	@mkdir -p $(CURDIR)/.scripts
+	@$(MAKE) log.info MSG="Creating cache directory at $(CURDIR)/.cache..."
 	@mkdir -p $(CURDIR)/.cache
 	@echo "*\n!.gitignore" > $(CURDIR)/.cache/.gitignore
+	@$(MAKE) log.info MSG="Creating binary directory at $(CURDIR)/bin..."
 	@mkdir -p $(CURDIR)/bin
 	@echo "*\n!.gitignore" > $(CURDIR)/bin/.gitignore
 	@$(MAKE) log.info MSG="Loading Dockerfile for creating images..."
@@ -14,7 +18,11 @@ init:
 	@if ! [ -e "$(CURDIR)/.scripts/auto-run.py" ]; then echo "$$AUTO_RUN_TESTS_CONTENT" > $(CURDIR)/.scripts/auto-run.py; fi
 	@$(MAKE) log.info MSG="Building development image..."
 	@$(MAKE) build.docker.development
+	@$(MAKE) log.info MSG="Initialising git repository..."
+	@git init
+	@git commit --allow-empty -m "initial commit"
 
+# de-initialises the project by removing tooling files related to go init
 deinit:
 	@$(MAKE) log.warn MSG="Removing ./Dockerfile..."
 	@if [ -e "$(CURDIR)/Dockerfile" ]; then rm -rf $(CURDIR)/Dockerfile; fi
@@ -23,6 +31,7 @@ deinit:
 	@$(MAKE) log.warn MSG="Removing ./.scripts/auto-run.py..."
 	@if [ -e "$(CURDIR)/.scripts/auto-run.py" ]; then rm -rf $(CURDIR)/.scripts/auto-run.py; fi
 
+# runs `go build` for linux, os x, and windows
 build:
 	-@$(eval GIT_TAG_VERSION=$(shell docker run -v "$(CURDIR):/app" zephinzer/vtscripts:latest get-latest -q -i))
 	-@docker stop $(PROJECT_NAME)-latest-build
@@ -84,6 +93,29 @@ build.docker.production:
 	@$(MAKE) log.info MSG="Building image \"$(PROJECT_NAME):latest\""
 	@docker build -f ./Dockerfile --target=production -t $(PROJECT_NAME):latest .
 	@$(MAKE) log.info MSG="Image \"$(PROJECT_NAME):latest\" successfully built"
+
+dep: build.docker.development
+	@if [ -z "${ARGS}" ]; then \
+		$(MAKE) log.error MSG='"ARGS" parameter not specified.'; \
+		exit 1; \
+	else \
+		docker run \
+			--workdir /go/src/$(PROJECT_NAME) \
+			-v $(CURDIR):/go/src/$(PROJECT_NAME) \
+			-v $(CURDIR)/.cache:/.cache \
+			-u $$(id -u) \
+			--entrypoint=dep \
+			$(PROJECT_NAME):latest-dev \
+			${ARGS}; \
+	fi
+	# this hack is for allowing vscode to identify vendor dependencies based on GOPATH so we have intellisense
+	-@ln -s vendor src
+
+dep.init:
+	$(MAKE) dep ARGS="init"
+
+dep.ensure:
+	$(MAKE) dep ARGS="ensure -v"
 
 publish.docker.development:
 	-@$(eval GIT_TAG_VERSION=$(shell docker run -v "$(CURDIR):/app" zephinzer/vtscripts:latest get-latest -q -i))
