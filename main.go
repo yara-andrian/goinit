@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,13 +13,20 @@ import (
 const makefileURL = "https://raw.githubusercontent.com/zephinzer/goinit/master/Makefile"
 
 func main() {
+	printLogo()
+
 	workingDirectory := getWorkingDirectory()
+	fmt.Println(" - initialising a Golang project at " + workingDirectory)
+
+	fmt.Println(" - downloading latest Makefile")
 	makefileContents := retrieveRemoteMakefile()
 	makefilePath := path.Join(workingDirectory, "./Makefile")
 	if fileExists(makefilePath) == true {
+		fmt.Println(" - making a backup of " + makefilePath)
 		backupFile(makefilePath)
 	}
 	makefileHandle := createFile(makefilePath)
+	fmt.Println(" - writing Makefile to " + makefilePath)
 	makefileHandle.Write([]byte(makefileContents))
 }
 
@@ -55,6 +63,17 @@ func getWorkingDirectory() string {
 		panic(err)
 	}
 	return workingDirectory
+}
+
+func printLogo() {
+	fmt.Println("$$$$$$\\            $$$$$$\\           $$\\   $$\\      ")
+	fmt.Println("$$  __$$\\           \\_$$  _|          \\__|  $$ |    ")
+	fmt.Println("$$ /  \\__| $$$$$$\\    $$ |  $$$$$$$\\  $$\\ $$$$$$\\   ")
+	fmt.Println("$$ |$$$$\\ $$  __$$\\   $$ |  $$  __$$\\ $$ |\\_$$  _|  ")
+	fmt.Println("$$ |\\_$$ |$$ /  $$ |  $$ |  $$ |  $$ |$$ |  $$ |    ")
+	fmt.Println("$$ |  $$ |$$ |  $$ |  $$ |  $$ |  $$ |$$ |  $$ |$$\\ ")
+	fmt.Println("\\$$$$$$  |\\$$$$$$  |$$$$$$\\ $$ |  $$ |$$ |  \\$$$$  |")
+	fmt.Println(" \\______/  \\______/ \\______|\\__|  \\__|\\__|   \\____/ ")
 }
 
 func retrieveRemoteMakefile() string {
