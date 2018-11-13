@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"time"
 )
 
@@ -18,20 +19,28 @@ func main() {
 	workingDirectory := getWorkingDirectory()
 	fmt.Println(" - initialising a Golang project at " + workingDirectory)
 
-	fmt.Println(" - downloading latest Makefile")
+	fmt.Println(" - downloading latest Makefile...")
 	makefileContents := retrieveRemoteMakefile()
+	fmt.Println(" - downloaded latest Makefile")
+
 	makefilePath := path.Join(workingDirectory, "./Makefile")
 	if fileExists(makefilePath) == true {
-		fmt.Println(" - making a backup of " + makefilePath)
-		backupFile(makefilePath)
+		backupFilePath := makefilePath + "." + time.Now().Format("20060102150405")
+		fmt.Println(" - Makefile found, making a backup now at " + backupFilePath)
+		backupFile(makefilePath, backupFilePath)
+		fmt.Println(" - Makefile backup created")
 	}
+
+	fmt.Println(" - writing latest Makefile to " + makefilePath)
 	makefileHandle := createFile(makefilePath)
-	fmt.Println(" - writing Makefile to " + makefilePath)
-	makefileHandle.Write([]byte(makefileContents))
+	fileSize := writeToFile(makefileHandle, []byte(makefileContents))
+	fmt.Println(" - wrote " + strconv.Itoa(fileSize) + " bytes")
+
+	fmt.Println(" - run `make init` to get started!")
 }
 
-func backupFile(filePath string) {
-	backup := createFile(filePath + "." + time.Now().Format("20060102150405"))
+func backupFile(filePath string, backupFilePath string) {
+	backup := createFile(backupFilePath)
 	defer backup.Close()
 	file, err := os.Open(filePath)
 	defer file.Close()
@@ -47,6 +56,13 @@ func createFile(filePath string) *os.File {
 		panic(err)
 	}
 	return file
+}
+func writeToFile(file *os.File, data []byte) int {
+	fileSize, err := file.Write(data)
+	if err != nil {
+		panic(err)
+	}
+	return fileSize
 }
 
 func fileExists(filePath string) bool {

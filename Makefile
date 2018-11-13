@@ -32,7 +32,7 @@ deinit:
 	@if [ -e "$(CURDIR)/.scripts/auto-run.py" ]; then rm -rf $(CURDIR)/.scripts/auto-run.py; fi
 
 # runs `go build` for linux, os x, and windows
-build:
+build: build.docker.development
 	-@$(eval GIT_TAG_VERSION=$(shell docker run -v "$(CURDIR):/app" zephinzer/vtscripts:latest get-latest -q -i))
 	-@docker stop $(PROJECT_NAME)-latest-build
 	-@docker rm $(PROJECT_NAME)-latest-build
@@ -49,6 +49,7 @@ build:
 			-a \
 			-ldflags "-X main.version=$(GIT_TAG_VERSION) -w -extldflags \"static\"" \
 			-o bin/$(PROJECT_NAME)-win-386.exe
+	@$(MAKE) log.info MSG="Windows binary at $(CURDIR)/bin/$(PROJECT_NAME)-win-386.exe"
 	-@docker stop $(PROJECT_NAME)-latest-build
 	-@docker rm $(PROJECT_NAME)-latest-build
 	@$(MAKE) log.info MSG="Building Linux binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
@@ -63,9 +64,10 @@ build:
 			-a \
 			-ldflags "-X main.version=$(GIT_TAG_VERSION) -w -extldflags \"static\"" \
 			-o bin/$(PROJECT_NAME)-linux-amd64
-	@$(MAKE) log.info MSG="Building OS X binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
+	@$(MAKE) log.info MSG="OS X binary at $(CURDIR)/bin/$(PROJECT_NAME)-linux-amd64"
 	-@docker stop $(PROJECT_NAME)-latest-build
 	-@docker rm $(PROJECT_NAME)-latest-build
+	@$(MAKE) log.info MSG="Building OS X binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
 	@docker run \
 		-v "$(CURDIR):/go/src/app" \
 		-v $(CURDIR)/.cache:/.cache \
@@ -79,7 +81,7 @@ build:
 			-a \
 			-ldflags "-X main.version=$(GIT_TAG_VERSION) -w -extldflags \"static\"" \
 			-o bin/$(PROJECT_NAME)-linux-arm
-	@$(MAKE) log.info MSG="Successfully built $(PROJECT_NAME)..."
+	@$(MAKE) log.info MSG="Linux binary at $(CURDIR)/bin/$(PROJECT_NAME)-linux-arm"
 
 build.docker: init
 	@$(MAKE) build.docker.production
