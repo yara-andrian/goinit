@@ -1,4 +1,33 @@
+# Makefile from GoInit by @zephinzer (licensed under MIT - ie this line must stay here)
+# URL: https://github.com/zephinzer/goinit
+
+# Notes
+# - header fonts from http://patorjk.com/software/taag/#p=display&h=2&v=1&f=Slant&t=
+#
+# Sections
+# - bootstrap (init/deinit)
+# - development (start)
+# - dependencies (dep.*)
+# - testing (test.*)
+# - compilation (build)
+# - containerisation (build.docker.*)
+# - publishing (publish.docker.*)
+# - versioning (version.*)
+# - logging (log.*)
+# - data (...files)
+
+## > global variables
+# PROJECT_NAME - uses the current directory name, change this if you wish
 PROJECT_NAME=$(notdir $(CURDIR))
+## / global variables
+
+##     __                __       __                 
+##    / /_  ____  ____  / /______/ /__________ _____ 
+##   / __ \/ __ \/ __ \/ __/ ___/ __/ ___/ __ `/ __ \
+##  / /_/ / /_/ / /_/ / /_(__  ) /_/ /  / /_/ / /_/ /
+## /_.___/\____/\____/\__/____/\__/_/   \__,_/ .___/ 
+##                                          /_/      
+## #bootstrap
 
 # this initialises the project directory
 init:
@@ -21,7 +50,6 @@ init:
 	@$(MAKE) log.info MSG="Initialising git repository..."
 	@git init
 	@git commit --allow-empty -m "initial commit"
-
 # de-initialises the project by removing tooling files related to go init
 deinit:
 	@$(MAKE) log.warn MSG="Removing ./Dockerfile..."
@@ -30,6 +58,95 @@ deinit:
 	@if [ -e "$(CURDIR)/.scripts/.bash_profile" ]; then rm -rf $(CURDIR)/.scripts/.bash_profile; fi
 	@$(MAKE) log.warn MSG="Removing ./.scripts/auto-run.py..."
 	@if [ -e "$(CURDIR)/.scripts/auto-run.py" ]; then rm -rf $(CURDIR)/.scripts/auto-run.py; fi
+
+##        __               __                                 __ 
+##   ____/ /__ _   _____  / /___  ____  ____ ___  ___  ____  / /_
+##  / __  / _ \ | / / _ \/ / __ \/ __ \/ __ `__ \/ _ \/ __ \/ __/
+## / /_/ /  __/ |/ /  __/ / /_/ / /_/ / / / / / /  __/ / / / /_  
+## \__,_/\___/|___/\___/_/\____/ .___/_/ /_/ /_/\___/_/ /_/\__/  
+##                            /_/                                
+## #development
+
+start: build.docker.development
+	-@docker stop $(PROJECT_NAME)-latest-dev
+	-@docker rm $(PROJECT_NAME)-latest-dev
+	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-dev\" from image \"$(PROJECT_NAME):latest-dev\"..."
+	@docker run \
+		-v "$(CURDIR):/go/src/app" \
+		-v $(CURDIR)/.cache:/.cache \
+		-u $$(id -u) \
+		--name $(PROJECT_NAME)-latest-dev \
+		$(PROJECT_NAME):latest-dev \
+		realize start --no-config --run
+
+##        __                          __                _          
+##   ____/ /__  ____  ___  ____  ____/ /__  ____  _____(_)__  _____
+##  / __  / _ \/ __ \/ _ \/ __ \/ __  / _ \/ __ \/ ___/ / _ \/ ___/
+## / /_/ /  __/ /_/ /  __/ / / / /_/ /  __/ / / / /__/ /  __(__  ) 
+## \__,_/\___/ .___/\___/_/ /_/\__,_/\___/_/ /_/\___/_/\___/____/  
+##          /_/                                                    
+##
+## #dependencies
+
+dep: build.docker.development
+	@if [ -z "${ARGS}" ]; then \
+		$(MAKE) log.error MSG='"ARGS" parameter not specified.'; \
+		exit 1; \
+	else \
+		docker run \
+			--workdir /go/src/$(PROJECT_NAME) \
+			-v $(CURDIR):/go/src/$(PROJECT_NAME) \
+			-v $(CURDIR)/.cache:/.cache \
+			-u $$(id -u) \
+			--entrypoint=dep \
+			$(PROJECT_NAME):latest-dev \
+			${ARGS}; \
+	fi
+	# this hack is for allowing vscode to identify vendor dependencies based on GOPATH so we have intellisense
+	-@ln -s vendor src
+dep.init:
+	$(MAKE) dep ARGS="init"
+dep.ensure:
+	$(MAKE) dep ARGS="ensure -v"
+
+##    __            __  _            
+##   / /____  _____/ /_(_)___  ____ _
+##  / __/ _ \/ ___/ __/ / __ \/ __ `/
+## / /_/  __(__  ) /_/ / / / / /_/ / 
+## \__/\___/____/\__/_/_/ /_/\__, /  
+##                          /____/   
+## #testing
+
+test: build.docker.development
+	-@docker stop $(PROJECT_NAME)-latest-test
+	-@docker rm $(PROJECT_NAME)-latest-test
+	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-test\" from image \"$(PROJECT_NAME):latest-dev\"..."
+	@docker run \
+		-v "$(CURDIR):/go/src/app" \
+		-v $(CURDIR)/.cache:/.cache \
+		-u $$(id -u) \
+		--name $(PROJECT_NAME)-latest-test \
+		$(PROJECT_NAME):latest-dev \
+		go test -v -cover -coverprofile=c.out
+test.watch: build.docker.development
+	-@docker stop $(PROJECT_NAME)-latest-testing
+	-@docker rm $(PROJECT_NAME)-latest-testing
+	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-testing\" from image \"$(PROJECT_NAME):latest-dev\"..."
+	@docker run \
+		-v "$(CURDIR):/go/src/app" \
+		-v $(CURDIR)/.cache:/.cache \
+		-u $$(id -u) \
+		--name $(PROJECT_NAME)-latest-testing \
+		$(PROJECT_NAME):latest-dev \
+		autorun-tests
+
+##                               _ __      __  _           
+##   _________  ____ ___  ____  (_) /___ _/ /_(_)___  ____ 
+##  / ___/ __ \/ __ `__ \/ __ \/ / / __ `/ __/ / __ \/ __ \
+## / /__/ /_/ / / / / / / /_/ / / / /_/ / /_/ / /_/ / / / /
+## \___/\____/_/ /_/ /_/ .___/_/_/\__,_/\__/_/\____/_/ /_/ 
+##                    /_/                                  
+## #compilation
 
 # runs `go build` for linux, os x, and windows
 build: build.docker.development
@@ -83,100 +200,111 @@ build: build.docker.development
 			-o bin/$(PROJECT_NAME)-linux-arm
 	@$(MAKE) log.info MSG="Linux binary at $(CURDIR)/bin/$(PROJECT_NAME)-linux-arm"
 
+##                     __        _                 _            __  _           
+##   _________  ____  / /_____ _(_)___  ___  _____(_)________ _/ /_(_)___  ____ 
+##  / ___/ __ \/ __ \/ __/ __ `/ / __ \/ _ \/ ___/ / ___/ __ `/ __/ / __ \/ __ \
+## / /__/ /_/ / / / / /_/ /_/ / / / / /  __/ /  / (__  ) /_/ / /_/ / /_/ / / / /
+## \___/\____/_/ /_/\__/\__,_/_/_/ /_/\___/_/  /_/____/\__,_/\__/_/\____/_/ /_/ 
+##                                                                              
+## #containerisation
+
 build.docker: init
 	@$(MAKE) build.docker.production
-
 build.docker.development:
 	@$(MAKE) log.info MSG="Building image \"$(PROJECT_NAME):latest-dev\""
 	-@docker build -f ./Dockerfile --target=development -t $(PROJECT_NAME):latest-dev .
 	@$(MAKE) log.info MSG="Image \"$(PROJECT_NAME):latest-dev\" successfully built"
-	
 build.docker.production:
 	@$(MAKE) log.info MSG="Building image \"$(PROJECT_NAME):latest\""
 	@docker build -f ./Dockerfile --target=production -t $(PROJECT_NAME):latest .
 	@$(MAKE) log.info MSG="Image \"$(PROJECT_NAME):latest\" successfully built"
 
-dep: build.docker.development
-	@if [ -z "${ARGS}" ]; then \
-		$(MAKE) log.error MSG='"ARGS" parameter not specified.'; \
-		exit 1; \
-	else \
-		docker run \
-			--workdir /go/src/$(PROJECT_NAME) \
-			-v $(CURDIR):/go/src/$(PROJECT_NAME) \
-			-v $(CURDIR)/.cache:/.cache \
-			-u $$(id -u) \
-			--entrypoint=dep \
-			$(PROJECT_NAME):latest-dev \
-			${ARGS}; \
-	fi
-	# this hack is for allowing vscode to identify vendor dependencies based on GOPATH so we have intellisense
-	-@ln -s vendor src
 
-dep.init:
-	$(MAKE) dep ARGS="init"
-
-dep.ensure:
-	$(MAKE) dep ARGS="ensure -v"
+##                  __    ___      __    _            
+##     ____  __  __/ /_  / (_)____/ /_  (_)___  ____ _
+##    / __ \/ / / / __ \/ / / ___/ __ \/ / __ \/ __ `/
+##   / /_/ / /_/ / /_/ / / (__  ) / / / / / / / /_/ / 
+##  / .___/\__,_/_.___/_/_/____/_/ /_/_/_/ /_/\__, /  
+## /_/                                       /____/   
+##
+## #publishing
 
 publish.docker.development:
 	-@$(eval GIT_TAG_VERSION=$(shell docker run -v "$(CURDIR):/app" zephinzer/vtscripts:latest get-latest -q -i))
-	@$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest-dev\" as \"$(PROJECT_NAME):${GIT_TAG_VERSION}-dev\""
-	-@docker tag $(PROJECT_NAME):latest-dev $(PROJECT_NAME):${GIT_TAG_VERSION}-dev
-
+	@if ! [ -z "${REGISTRY}" ] && ! [ -z ${NAMESPACE} ]; then \
+			$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest-dev\" as \"${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev\""; \
+			docker tag $(PROJECT_NAME):latest-dev ${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev; \
+			$(MAKE) log.info MSG="Attempting to push image \"${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev\"..."; \
+			$(MAKE) log.warn MSG="(hit ctrl+c to stop this)"; \
+			sleep 3; \
+			docker push ${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev; \
+		elif ! [ -z "${NAMESPACE}" ]; then \
+			$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest-dev\" as \"${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev\""; \
+			docker tag $(PROJECT_NAME):latest-dev ${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev; \
+			$(MAKE) log.info MSG="Attempting to push image \"${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev\"..."; \
+			$(MAKE) log.warn MSG="(hit ctrl+c to stop this)"; \
+			sleep 3; \
+			docker push ${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}-dev; \
+		else \
+			$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest-dev\" as \"$(PROJECT_NAME):${GIT_TAG_VERSION}-dev\""; \
+			docker tag $(PROJECT_NAME):latest-dev $(PROJECT_NAME):${GIT_TAG_VERSION}-dev; \
+			$(MAKE) log.info MSG="Attempting to push image \"$(PROJECT_NAME):${GIT_TAG_VERSION}-dev\"..."; \
+			$(MAKE) log.warn MSG="(hit ctrl+c to stop this)"; \
+			sleep 3; \
+			docker push $(PROJECT_NAME):${GIT_TAG_VERSION}-dev; \
+		fi
 publish.docker.production:
 	-@$(eval GIT_TAG_VERSION=$(shell docker run -v "$(CURDIR):/app" zephinzer/vtscripts:latest get-latest -q -i))
-	@$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest\" as \"$(PROJECT_NAME):${GIT_TAG_VERSION}\""
-	-@docker tag $(PROJECT_NAME):latest $(PROJECT_NAME):${GIT_TAG_VERSION}
+	@if ! [ -z "${REGISTRY}" ] && ! [ -z ${NAMESPACE} ]; then \
+			$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest\" as \"${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}\""; \
+			docker tag $(PROJECT_NAME):latest ${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}; \
+			$(MAKE) log.info MSG="Attempting to push image \"${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}\"..."; \
+			$(MAKE) log.warn MSG="(hit ctrl+c to stop this)"; \
+			sleep 3; \
+			docker push ${REGISTRY}/${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}; \
+		elif ! [ -z ${NAMESPACE} ]; then \
+			$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest\" as \"${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}\""; \
+			docker tag $(PROJECT_NAME):latest ${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}; \
+			$(MAKE) log.info MSG="Attempting to push image \"${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}\"..."; \
+			$(MAKE) log.warn MSG="(hit ctrl+c to stop this)"; \
+			sleep 3; \
+			docker push ${NAMESPACE}/$(PROJECT_NAME):${GIT_TAG_VERSION}; \
+		else \
+			$(MAKE) log.info MSG="Attempting to tag image \"$(PROJECT_NAME):latest\" as \"$(PROJECT_NAME):${GIT_TAG_VERSION}\""; \
+			docker tag $(PROJECT_NAME):latest $(PROJECT_NAME):${GIT_TAG_VERSION}; \
+			$(MAKE) log.info MSG="Attempting to push image \"$(PROJECT_NAME):${GIT_TAG_VERSION}\"..."; \
+			$(MAKE) log.warn MSG="(hit ctrl+c to stop this)"; \
+			sleep 3; \
+			docker push $(PROJECT_NAME):${GIT_TAG_VERSION}; \
+		fi
 
-start: build.docker.development
-	-@docker stop $(PROJECT_NAME)-latest-dev
-	-@docker rm $(PROJECT_NAME)-latest-dev
-	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-dev\" from image \"$(PROJECT_NAME):latest-dev\"..."
-	@docker run \
-		-v "$(CURDIR):/go/src/app" \
-		-v $(CURDIR)/.cache:/.cache \
-		-u $$(id -u) \
-		--name $(PROJECT_NAME)-latest-dev \
-		$(PROJECT_NAME):latest-dev \
-		realize start --no-config --run
-
-test: build.docker.development
-	-@docker stop $(PROJECT_NAME)-latest-test
-	-@docker rm $(PROJECT_NAME)-latest-test
-	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-test\" from image \"$(PROJECT_NAME):latest-dev\"..."
-	@docker run \
-		-v "$(CURDIR):/go/src/app" \
-		-v $(CURDIR)/.cache:/.cache \
-		-u $$(id -u) \
-		--name $(PROJECT_NAME)-latest-test \
-		$(PROJECT_NAME):latest-dev \
-		go test -v -cover -coverprofile=c.out
-
-test.watch: build.docker.development
-	-@docker stop $(PROJECT_NAME)-latest-testing
-	-@docker rm $(PROJECT_NAME)-latest-testing
-	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-testing\" from image \"$(PROJECT_NAME):latest-dev\"..."
-	@docker run \
-		-v "$(CURDIR):/go/src/app" \
-		-v $(CURDIR)/.cache:/.cache \
-		-u $$(id -u) \
-		--name $(PROJECT_NAME)-latest-testing \
-		$(PROJECT_NAME):latest-dev \
-		autorun-tests
+##                        _             _            
+##  _   _____  __________(_)___  ____  (_)___  ____ _
+## | | / / _ \/ ___/ ___/ / __ \/ __ \/ / __ \/ __ `/
+## | |/ /  __/ /  (__  ) / /_/ / / / / / / / / /_/ / 
+## |___/\___/_/  /____/_/\____/_/ /_/_/_/ /_/\__, /  
+##                                          /____/   
+## #versioning
 
 version.get:
 	@docker run -v "$$(pwd):/app" zephinzer/vtscripts:latest get-latest
-
 version.init:
 	@docker run -v "$$(pwd):/app" zephinzer/vtscripts:latest init
-
 version.bump:
-	@if [ -z "${BUMP}" ]; then \
-		docker run -v "$$(pwd):/app" zephinzer/vtscripts:latest iterate patch -i; \
-	else \
-		docker run -v "$$(pwd):/app" zephinzer/vtscripts:latest iterate ${BUMP} -i; \
-	fi
+	docker run -v "$$(pwd):/app" zephinzer/vtscripts:latest iterate patch -i;
+version.bump.minor:
+	docker run -v "$$(pwd):/app" zephinzer/vtscripts:latest iterate minor -i;
+version.bump.major:
+	docker run -v "$$(pwd):/app" zephinzer/vtscripts:latest iterate major -i;
+
+##     __                  _            
+##    / /___  ____ _____ _(_)___  ____ _
+##   / / __ \/ __ `/ __ `/ / __ \/ __ `/
+##  / / /_/ / /_/ / /_/ / / / / / /_/ / 
+## /_/\____/\__, /\__, /_/_/ /_/\__, /  
+##         /____//____/        /____/   
+##
+## #logging
 
 log.debug:
 	-@printf -- "\033[36m\033[1m_ [DEBUG] ${MSG}\033[0m\n"
@@ -186,6 +314,14 @@ log.warn:
 	-@printf -- "\033[33m\033[1m?  [WARN] ${MSG}\033[0m\n"
 log.error:
 	-@printf -- "\033[31m\033[1m! [ERROR] ${MSG}\033[0m\n"
+
+##        __      __       
+##   ____/ /___ _/ /_____ _
+##  / __  / __ `/ __/ __ `/
+## / /_/ / /_/ / /_/ /_/ / 
+## \__,_/\__,_/\__/\__,_/  
+##                         
+## #data
 
 define DOCKERFILE_CONTENT
 # for use in development
