@@ -39,6 +39,9 @@ init:
 	@$(MAKE) log.info MSG="Creating binary directory at $(CURDIR)/bin..."
 	@mkdir -p $(CURDIR)/bin
 	@echo "*\n!.gitignore" > $(CURDIR)/bin/.gitignore
+	@$(MAKE) log.info MSG="Creating vendor directory at $(CURDIR)/vendor..."
+	@mkdir -p $(CURDIR)/vendor
+	@echo "*\n!.gitignore" > $(CURDIR)/vendor/.gitignore
 	@$(MAKE) log.info MSG="Loading Dockerfile for creating images..."
 	@if ! [ -e "$(CURDIR)/Dockerfile" ]; then echo "$$DOCKERFILE_CONTENT" > $(CURDIR)/Dockerfile; fi
 	@$(MAKE) log.info MSG="Loading .bash_profile for nice shell debugging..."
@@ -72,12 +75,13 @@ start: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-dev
 	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-dev\" from image \"$(PROJECT_NAME):latest-dev\"..."
 	@docker run \
+		--network host \
 		-v "$(CURDIR):/go/src/app" \
 		-v $(CURDIR)/.cache:/.cache \
 		-u $$(id -u) \
 		--name $(PROJECT_NAME)-latest-dev \
 		$(PROJECT_NAME):latest-dev \
-		realize start --no-config --run
+		gin -i main.go
 
 ##        __                          __                _          
 ##   ____/ /__  ____  ___  ____  ____/ /__  ____  _____(_)__  _____
@@ -94,8 +98,8 @@ dep: build.docker.development
 		exit 1; \
 	else \
 		docker run \
-			--workdir /go/src/$(PROJECT_NAME) \
-			-v $(CURDIR):/go/src/$(PROJECT_NAME) \
+			--workdir /go/src/app \
+			-v $(CURDIR):/go/src/app \
 			-v $(CURDIR)/.cache:/.cache \
 			-u $$(id -u) \
 			--entrypoint=dep \
@@ -108,6 +112,34 @@ dep.init:
 	$(MAKE) dep ARGS="init"
 dep.ensure:
 	$(MAKE) dep ARGS="ensure -v"
+
+mod: build.docker.development
+	@if [ -z "${ARGS}" ]; then \
+		$(MAKE) log.error MSG='"ARGS" parameter not specified.'; \
+		exit 1; \
+	else \
+		docker run \
+			--workdir /go/src/app \
+			-v $(CURDIR):/go/src/app \
+			-v $(CURDIR)/.cache:/.cache \
+			--env GO111MODULE=on \
+			-u $$(id -u) \
+			--entrypoint=go \
+			$(PROJECT_NAME):latest-dev \
+			mod ${ARGS}; \
+	fi
+mod.init:
+	@if [ -z "${PACKAGE}" ]; then \
+		$(MAKE) log.error MSG='"PACKAGE" parameter not specified.'; \
+		exit 1; \
+	else \
+		$(MAKE) mod ARGS="init ${PACKAGE}"; \
+	fi
+mod.download:
+	@$(MAKE) mod ARGS="download"
+	@$(MAKE) mod ARGS="vendor"
+mod.vendor:
+	@$(MAKE) mod ARGS="vendor"
 
 ##    __            __  _            
 ##   / /____  _____/ /_(_)___  ____ _
@@ -122,6 +154,7 @@ test: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-test
 	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-test\" from image \"$(PROJECT_NAME):latest-dev\"..."
 	@docker run \
+		--network host \
 		-v "$(CURDIR):/go/src/app" \
 		-v $(CURDIR)/.cache:/.cache \
 		-u $$(id -u) \
@@ -133,6 +166,7 @@ test.watch: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-testing
 	@$(MAKE) log.info MSG="Creating container \"$(PROJECT_NAME)-latest-testing\" from image \"$(PROJECT_NAME):latest-dev\"..."
 	@docker run \
+		--network host
 		-v "$(CURDIR):/go/src/app" \
 		-v $(CURDIR)/.cache:/.cache \
 		-u $$(id -u) \
@@ -156,6 +190,7 @@ build: build.docker.development
 	@mkdir -p bin
 	@$(MAKE) log.info MSG="Building Windows binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
 	@docker run \
+		--network host
 		-v "$$(pwd):/go/src/app" \
 		--env "CGO_ENABLED=0" \
 		--env "GOOS=windows" \
@@ -171,6 +206,7 @@ build: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-build
 	@$(MAKE) log.info MSG="Building Linux binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
 	@docker run \
+		--network host \
 		-v "$$(pwd):/go/src/app" \
 		--env "CGO_ENABLED=0" \
 		--env "GOOS=linux" \
@@ -186,6 +222,7 @@ build: build.docker.development
 	-@docker rm $(PROJECT_NAME)-latest-build
 	@$(MAKE) log.info MSG="Building OS X binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
 	@docker run \
+		--network host \
 		-v "$(CURDIR):/go/src/app" \
 		-v $(CURDIR)/.cache:/.cache \
 		-u $$(id -u) \
@@ -323,18 +360,20 @@ log.error:
 ##                         
 ## #data
 
+
 define DOCKERFILE_CONTENT
 # for use in development
+ARG GOLANG_VERSION="1.11"
 # this image contains just the source code
-FROM golang:1.11-alpine as development
+FROM golang:$${GOLANG_VERSION}-alpine as development
 # defines extra `apk` dependencies if required
 ARG APK=""
 # due dilligence
 RUN apk update --no-cache
 # system dependencies for `go get`
 RUN apk add --no-cache git curl
-# installs realize for server live-reloading
-RUN go get -v github.com/oxequa/realize
+# installs gin for server live-reloading
+RUN go get -v -d github.com/codegangsta/gin
 # installs dep for dependency management
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 # system dependencies for `go test`
@@ -357,8 +396,9 @@ COPY ./.scripts/.bash_profile /root/.bash_profile
 RUN chmod +x /root/.bash_profile
 
 # for use in the binary generating process
+ARG GOLANG_VERSION="1.11"
 # this image will contain both the source code and the binaries
-FROM golang:1.11-alpine as compile
+FROM golang:$${GOLANG_VERSION}-alpine as compile
 # copies everything in this directory 
 COPY . /go/src/app
 # sets the working directory to a valid GOPATH
@@ -369,8 +409,9 @@ RUN go test -coverprofile c.out && go build -o app && ln -s /go/src/app/app /bin
 ENTRYPOINT [ "start" ]
 
 # for use in the production environment
+ARG ALPINE_VERSION="3.8"
 # this image contains just the binary
-FROM alpine:3.8 as production
+FROM alpine:$${ALPINE_VERSION} as production
 # defines any other `apk` dependencies to install
 ARG APK=""
 # due dilligence
@@ -577,3 +618,13 @@ get_branch() {
 PS1=$$'\[\\a\]\[\\n\]\[\e[90m\]\[\e[37m\]\[\e[1m\]$$(drawline)\\n⎸bash ⎸👤 $$(whoami) ⎸📆 $$(get_time) ⎸ 📂 $$(pwd) $$(get_branch)\\n\[\e[0m\]\[\e[36m\]\[\e[35m\]⢈\[\e[31m\]⢨⢘\[\e[91m\]⢈⢸⠨\[\e[33m\]⠸⢈\[\e[32m\]⢨\[\e[36m\]⢘\[\e[94m\]⢈ \[\e[37m\]$$\[\e[0m\] ';
 endef
 export BASH_PROFILE_CONTENT
+define LICENSE_CONTENT
+Copyright __year__ __name__
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+endef
+export LICENSE_CONTENT

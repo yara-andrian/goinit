@@ -1,14 +1,15 @@
 # for use in development
+ARG GOLANG_VERSION="1.11"
 # this image contains just the source code
-FROM golang:1.11-alpine as development
+FROM golang:${GOLANG_VERSION}-alpine as development
 # defines extra `apk` dependencies if required
 ARG APK=""
 # due dilligence
 RUN apk update --no-cache
 # system dependencies for `go get`
 RUN apk add --no-cache git curl
-# installs realize for server live-reloading
-RUN go get -v github.com/oxequa/realize
+# installs gin for server live-reloading
+RUN go get -v -d github.com/codegangsta/gin
 # installs dep for dependency management
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 # system dependencies for `go test`
@@ -31,8 +32,9 @@ COPY ./.scripts/.bash_profile /root/.bash_profile
 RUN chmod +x /root/.bash_profile
 
 # for use in the binary generating process
+ARG GOLANG_VERSION="1.11"
 # this image will contain both the source code and the binaries
-FROM golang:1.11-alpine as compile
+FROM golang:${GOLANG_VERSION}-alpine as compile
 # copies everything in this directory 
 COPY . /go/src/app
 # sets the working directory to a valid GOPATH
@@ -43,8 +45,9 @@ RUN go test -coverprofile c.out && go build -o app && ln -s /go/src/app/app /bin
 ENTRYPOINT [ "start" ]
 
 # for use in the production environment
+ARG ALPINE_VERSION="3.8"
 # this image contains just the binary
-FROM alpine:3.8 as production
+FROM alpine:${ALPINE_VERSION} as production
 # defines any other `apk` dependencies to install
 ARG APK=""
 # due dilligence

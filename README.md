@@ -18,7 +18,7 @@ $$ |  $$ |$$ |  $$ |  $$ |  $$ |  $$ |$$ |  $$ |$$\
 Run the following:
 
 ```
-go get -v github.com/zephinzer/goinit
+go get -v -d github.com/zephinzer/goinit
 ```
 
 Then in any directory you can run `goinit` and a Makefile will appear. Run `make init` and you're good to go.
@@ -31,7 +31,7 @@ rm -rf $(go env | grep GOPATH | cut -f 2 -d '=' | sed -e 's|"||g')/bin/goinit;
 ```
 
 ## Option 2: You don't have Go and want a binary
-Go to [the Releases tab], download a zip of the latest release and:
+Go to [the Releases tab](https://github.com/zephinzer/goinit/releases), download a zip of the latest release and:
 
 1. Unzip it.
 1. In the `./bin` directory, copy the relevant binary out and move it to `/opt`.
@@ -72,16 +72,16 @@ To build the production container: `make build.docker.production`
 ## Local Dependencies
 Related to writing your Go application anywhere you deem fit (instead of where `$GOPATH` deems fit), this initializer uses `dep` to manage a local set of dependencies in a `vendor` directory. A `src` directory is symlinked to it so that code editors such as VSCode can use their spidey Intellisenses.
 
-To initialise dependencies: `make dep.init`
+To initialise dependencies: `make dep.init` or `make mod.init`
 
-To update dependencies: `make dep.ensure`
+To update dependencies: `make dep.ensure` or `make mod.download`
 
 To run an arbitrary `dep` command: `make dep ARGS="whatever"`
 
 ## Quick Feedback
 Fast feedback cycles allow us to iterate quicker. In development, code is live-reloaded as it is saved, same goes for tests.
 
-- Realize by @oxequa is used for live-reloading of your application.
+- [Gin by @codegangsta](https://github.com/codegangsta/gin) is used for live-reloading of your application.
 - A handy `auto-run.py` script by GoConvey is used for watching test files.
 
 To start development, create a `main.go` and run `make start`
@@ -115,4 +115,4 @@ I'm by day a DevOps engineer and by night a Go newbie. In my efforts to learn Go
 - Push it to your fork and create a pull request.
 
 # License
-Code for this initializer is licensed under the MIT license. See [./LICENSE] for the full text.
+Code for this initializer is licensed under the MIT license. See [LICENSE for the full text](./LICENSE).

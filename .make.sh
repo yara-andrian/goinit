@@ -26,8 +26,20 @@ cat Makefile | grep "define BASH_PROFILE_CONTENT" >/dev/null;
 if [ "$?" = "0" ]; then 
   sed -i '/define BASH_PROFILE_CONTENT/,/export BASH_PROFILE_CONTENT/d' ./Makefile;
 fi;
-printf -- "define BASH_PROFILE_CONTENT
+printf -- "\
+define BASH_PROFILE_CONTENT
 $(sed -e 's|\$|$$|g' -e 's|\\a|\\\\\\\\a|g' -e 's|\\n|\\\\\\\\n|g' -e 's|%|%%|g' ./src/.scripts/.bash_profile)
 endef
 export BASH_PROFILE_CONTENT
+" >> ./Makefile
+
+cat Makefile | grep "define LICENSE_CONTENT" >/dev/null;
+if [ "$?" = "0" ]; then 
+  sed -i '/define LICENSE_CONTENT/,/export LICENSE_CONTENT/d' ./Makefile;
+fi;
+printf -- "\
+define LICENSE_CONTENT
+$(sed -e 's|\$|$$|g' -e 's|\\a|\\\\\\\\a|g' -e 's|\\n|\\\\\\\\n|g' -e 's|%|%%|g' ./src/LICENSE)
+endef
+export LICENSE_CONTENT
 " >> ./Makefile
