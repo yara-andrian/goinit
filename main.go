@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,8 +13,16 @@ import (
 )
 
 const makefileURL = "https://raw.githubusercontent.com/zephinzer/goinit/master/Makefile"
+const version = "0.3.1"
 
 func main() {
+	versionFlag := flag.Bool("v", false, "prints current version")
+	flag.Parse()
+	if *versionFlag {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
 	printLogo()
 
 	workingDirectory := getWorkingDirectory()

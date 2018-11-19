@@ -190,7 +190,7 @@ build: build.docker.development
 	@mkdir -p bin
 	@$(MAKE) log.info MSG="Building Windows binary $(PROJECT_NAME) at version $(GIT_TAG_VERSION)..."
 	@docker run \
-		--network host
+		--network host \
 		-v "$$(pwd):/go/src/app" \
 		--env "CGO_ENABLED=0" \
 		--env "GOOS=windows" \
@@ -373,7 +373,7 @@ RUN apk update --no-cache
 # system dependencies for `go get`
 RUN apk add --no-cache git curl
 # installs gin for server live-reloading
-RUN go get -v -d github.com/codegangsta/gin
+RUN go get -v github.com/codegangsta/gin
 # installs dep for dependency management
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 # system dependencies for `go test`

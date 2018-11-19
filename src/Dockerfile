@@ -9,7 +9,7 @@ RUN apk update --no-cache
 # system dependencies for `go get`
 RUN apk add --no-cache git curl
 # installs gin for server live-reloading
-RUN go get -v -d github.com/codegangsta/gin
+RUN go get -v github.com/codegangsta/gin
 # installs dep for dependency management
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 # system dependencies for `go test`
