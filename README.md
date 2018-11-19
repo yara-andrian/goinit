@@ -116,3 +116,11 @@ I'm by day a DevOps engineer and by night a Go newbie. In my efforts to learn Go
 
 # License
 Code for this initializer is licensed under the MIT license. See [LICENSE for the full text](./LICENSE).
+
+# ChangeLog
+## 0.3.0
+- Added support for `go mod` via the `mod.*` Makefile recipe
+- Added capability to change the verison of Golang/Alpine through the Makefile using `--build-arg` (add it yourself if needed)
+
+## 0.2.0
+- Earliest recorded version
